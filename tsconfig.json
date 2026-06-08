@@ -1,127 +1,21 @@
-# セットアップ完全手順（ゼロから）
-
-このプロジェクト（zip の中身）を、**実際にスマホで診断が動く状態**にするまでの手順です。
-上から順番にやれば大丈夫。専門知識は不要です。
-
-## 用意するもの
-- LINE アカウント（普段のスマホのLINEでOK）
-- GitHub アカウント（無料）
-- Vercel アカウント（無料 / GitHubでログインできる）
-- メールアドレス（Supabase 用 / 無料）
-
-## 全体像（なぜこの順番か）
-LIFFを動かすには「デプロイ後のURL」が先に必要で、そのURLをLINE側に登録します。
-URLの行き来があるので、**Vercelでデプロイ → URL取得 → LINEに登録**の順が一番スムーズです。
-
-使うサービスは4つ：
-- **GitHub** … コード置き場
-- **Vercel** … 公開（デプロイ）。HTTPSのURLをくれる
-- **Supabase** … データの保存先
-- **LINE Developers** … LIFF ID やキーを取る場所
-
-> webhook（LINEからの自動受信）は「ステップ配信」の土台で、**今回の動作確認には不要**です。
-> なので前半（STEP1〜6）で診断を動かし、webhookは後半（STEP7〜8）に回します。
-
----
-
-# 前半：診断が動くところまで
-
-## STEP 1. コードを GitHub に置く
-1. GitHub にログイン → 右上「＋」→ **New repository**
-2. 名前を入力（例：`life-redesign-liff`）→ Private のまま → **Create repository**
-3. 作成後の画面で **uploading an existing file** のリンクをクリック
-4. zip を解凍した中身（`app` `lib` `supabase` `package.json` など）を**フォルダごとドラッグ＆ドロップ**
-5. 下の **Commit changes** を押す
-
-> 前回のように Claude Code（または `git push`）で上げてもOK。やりやすい方で。
-
-## STEP 2. Vercel でデプロイ → URL を取得
-1. Vercel にログイン → **Add New… → Project**
-2. STEP1 のリポジトリを **Import**
-3. Framework は **Next.js** が自動で選ばれているはず。設定はそのまま **Deploy**
-4. 完了すると `https://〇〇〇.vercel.app` という **URL** が出ます。これを**メモ**
-
-> この時点ではキー未設定なので、開いてもエラーで正常です。URLが取れればOK。
-
-## STEP 3. Supabase を用意
-1. Supabase で **New project** を作成（リージョンは Tokyo 推奨）
-2. 左メニュー **SQL Editor** → 新規クエリ → `supabase/schema.sql` の中身を貼り付け → **Run**
-   （「Success」と出ればテーブル完成）
-3. 左メニュー **Settings → API Keys**
-   - **Publishable key**（`sb_publishable_…`）をコピー → 後で使う
-     （旧 `anon` キーがあるならそれでも可）
-   - **Project URL**（`https://〇〇.supabase.co`）もコピー
-
-## STEP 4. LINEログインチャネル + LIFFアプリ → LIFF ID
-1. https://developers.line.biz/console/ にLINEアカウントでログイン
-2. **プロバイダー**を作成（名前は何でも可。例：自分の名前や屋号）
-3. そのプロバイダー内で **新規チャネル作成 → LINEログイン** を選択して作成
-   - ※「Messaging API」ではなく **LINEログイン** を選ぶのがポイント
-4. 作ったLINEログインチャネルを開き、上部の **LIFF タブ → 追加（Add）**
-5. LIFFアプリの設定：
-   - **エンドポイントURL**：STEP2 の Vercel の URL（例：`https://〇〇〇.vercel.app`）
-   - **サイズ**：Full
-   - **スコープ**：`profile` と `openid` にチェック（プロフィール取得に必須）
-   - 保存
-6. 一覧に出る **LIFF ID**（`1234567890-abcdefgh` のような形）をコピー
-
-## STEP 5. Vercel に3つのキーを入れて再デプロイ
-1. Vercel のプロジェクト → **Settings → Environment Variables**
-2. 次の3つを追加：
-
-   | 名前 | 値 |
-   |---|---|
-   | `NEXT_PUBLIC_LIFF_ID` | STEP4 の LIFF ID |
-   | `NEXT_PUBLIC_SUPABASE_URL` | STEP3 の Project URL |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | STEP3 の Publishable key（または anon key） |
-
-3. **重要**：`NEXT_PUBLIC_` の値は再デプロイしないと反映されません。
-   **Deployments → 最新のものの「…」→ Redeploy** を実行
-
-## STEP 6. スマホで動作確認
-1. スマホのブラウザかLINEで `https://liff.line.me/【あなたのLIFF ID】` を開く
-2. LINEログイン → 診断画面が出る → 7問答える
-3. 最後に「将来不安型」などの結果＋「✅ 結果を保存しました」が出れば成功
-4. Supabase の **Table Editor → diagnoses** に行が増えていれば、保存も完璧
-
-🎉 ここまでで「捕獲＋分類エンジン」が動いた状態です。
-
----
-
-# 後半：LINE公式アカウント連携と webhook（ステップ配信の土台）
-
-> 急がなくてOK。診断が動いてから、ステップ配信を作る段階で。
-
-## STEP 7. Messaging API チャネル → secret / token
-1. STEP4 と同じプロバイダー内で **新規チャネル作成 → Messaging API**
-2. 作成後、**チャネルシークレット（channel secret）** をコピー
-3. **Messaging API 設定タブ → チャネルアクセストークン** を発行してコピー
-4. Vercel の Environment Variables に追加 → Redeploy：
-   - `LINE_CHANNEL_SECRET`
-   - `LINE_CHANNEL_ACCESS_TOKEN`
-
-## STEP 8. webhook URL を設定
-1. Messaging API チャネルの **Webhook URL** に
-   `https://〇〇〇.vercel.app/api/webhook` を設定
-2. **Verify** を押して成功（200）になればOK
-3. 返信処理は `app/api/webhook/route.ts` のコメント部分を有効化すれば動きます
-
----
-
-# つまずきポイント早見表
-
-- **LIFFログインがループする／エラー**
-  → LIFFの「エンドポイントURL」が Vercel のURLと**完全一致**しているか。スコープに `profile` が入っているか。
-- **「anon key」が見つからない**
-  → 今は `Publishable key`（`sb_publishable_…`）が標準。それを `NEXT_PUBLIC_SUPABASE_ANON_KEY` に入れればOK。
-- **結果が保存されない**
-  → STEP3-2 の `schema.sql` を実行したか。`diagnoses` テーブルと dev用RLSができているか。
-- **キーを変えたのに反映されない**
-  → `NEXT_PUBLIC_` 系は**再デプロイ（Redeploy）必須**。
-- **本番前に必ず**
-  → `schema.sql` の「dev only」RLSポリシーは緩いので、公開運用前に締めること。
-
-# 質問を増やす・本文を直すとき
-- 質問の追加・配点：`lib/diagnosis.ts` の `QUESTIONS`
-- 各タイプのレポート本文・出口CTA：`lib/diagnosis.ts` の `TYPES`
-- 前回同様、Claude Code で編集 → git push すれば Vercel が自動で再デプロイします。
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
