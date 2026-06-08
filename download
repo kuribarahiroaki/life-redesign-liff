@@ -1,0 +1,10 @@
+# ===== LIFF (LINE Developers > LIFF tab) =====
+NEXT_PUBLIC_LIFF_ID=0000000000-xxxxxxxx
+
+# ===== Supabase (Project Settings > API) =====
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# ===== LINE Messaging API (webhook用) =====
+LINE_CHANNEL_SECRET=xxxxxxxxxxxxxxxx
+LINE_CHANNEL_ACCESS_TOKEN=xxxxxxxxxxxxxxxx
