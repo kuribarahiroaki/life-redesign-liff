@@ -134,6 +134,7 @@ export default function Home() {
       );
       await supabase.from("diagnoses").insert({
         line_user_id: userId,
+        display_name: name,
         answers: { responses: finalResponses, scores: totals },
         result_type: r,
         tag: RESULT[r].tag,
